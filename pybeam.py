@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+""" 
+Collection of utility functions for interfacing with 
+a loudspeaker beamforming array. 
+"""
+
 import numpy as np
 import scipy.signal
 import scipy.io.wavfile
