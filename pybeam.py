@@ -1,8 +1,5 @@
-#!/usr/bin/python
-
 """ 
-Collection of utility functions for interfacing with 
-a loudspeaker beamforming array. 
+Collection of functions for loudspeaker beamforming. 
 """
 
 import numpy as np
@@ -26,55 +23,87 @@ __l2 = lambda arr: np.sqrt(np.sum(arr**2))
 __Zf = lambda x_m, y_l, omega: np.e**(-1j * omega / __c * __l2(x_m - y_l)) \
         / (4 * np.pi * __l2(x_m - y_l))
 
-def get_source_matrix(dim=(2, 1): tuple, delta=(0.5, 0): tuple, 
-        center=(0, 0, 0): tuple) -> np.matrix:
+def get_source_matrix(dim: tuple=(2, 1), delta: tuple=(0.5, 0), 
+        center: tuple=(0,0,0)) -> np.ndarray:
     """
-    Generates a matrix of source points (i.e. loudspeakers) according to input.
+    Generates a matrix of source points (i.e. loudspeakers). 
 
     Args:
-        dim: a two element tuple that denotes the dimension of the source 
-            (loudspaker) array. Optional, defaults to (2, 1).
-        delta: a two element tuple that denotes the spacing between sources in
-            the speaker array. Optional, defaults to (0,5, 0).
-        center: a three element tuple that indicates the location of the center
-            of the source matrix in a 3D field. Optional, defaults to (0, 0, 0).
-
+        dim: A two element tuple that denotes the dimension of 
+            the source (loudspaker) array. 
+            Optional, defaults to (2, 1).
+        delta: A two element tuple that denotes the spacing between 
+            sources in the speaker array. 
+            Optional, defaults to (0,5, 0).
+        center: A three element tuple that indicates the location of 
+            the center of the source matrix in a 3D field.
+            Optional, defaults to (0, 0, 0).
 
     Returns:
-        A numpy matrix with dimensions dim[0] * dim[1] by 3. Each row signifies
-        a different source. Each row is a coordinate in 3D space. 
+        A numpy array of floats with dimensions dim[0] * dim[1] by 3.
+        Each row signifies a different source. 
+        Each row is a coordinate in 3D space. 
     """
 
     L = dim[0] * dim[1]
     y = np.zeros((L, 3))
     for x in range(dim[0]):
         for z in range(dim[1]):
-            y[x * dim[1] + z] = np.array([center[0] + (x-dim[0]//2+0.5)*delta[0],
+            y[x * dim[1] + z] = np.array([
+                                    center[0] + (x-dim[0]//2+0.5)*delta[0],
                                     center[1],
                                     center[2] + (z-dim[1]//2+0.5)*delta[1]])
     return y
 
-def get_verification_matrix(R=3, dim=(37,1), b=(90,90)):
+def get_verification_matrix(R: int=3, dim: tuple=(37, 1), 
+        b: tuple=(90, 90)) -> np.ndarray:
+    """
+    Genereates a matrix of verification points according to input
+    Think of the output as a matrix of fake microphones used to 
+    help in calculations. 
+    
+    Args: 
+        R: The radius of the hemispherical/semicircular region. 
+            Optional, defaults to 3.
+        dim: A two element tuple that indicates where to put the 
+            verification points.
+            Ex 1: dim=(37,1) indicates to construct a horizontal 
+                semicircle with 37 control points
+            Ex 2: dim=(1,37) indicates to construct a vertical 
+                semicircle with 37 control points
+            Ex 3: dim=(37,37) indicates to contruct a hemisphere
+                with 37 by 37 control points (a total of 1369)
+            Optional, defaults to (37, 1)
+        b: A two element tuple that indicates which location 
+            to put the bright point (i.e. where the signal should 
+            be aimed). If one element in dim is 1, make sure to set 
+            the corresponding index in b to 90. 
+            Optional, defaults to (90, 90).
+
+    Returns:
+        A numpy array with dimensions dim[0]*dim[1] by 3. Each row signifies
+        a different source. Each row is a coordinate in 3D space. 
+    """
     M = dim[0] * dim[1]
     delta_theta = 180 / (dim[0] - 1) * np.pi / 180 if dim[0] > 1 else 0 
     delta_phi = 180 / (dim[1] - 1) * np.pi / 180 if dim[1] > 1 else 0
     xtmp = np.zeros((M, 3))
-    bidx, mindist, targpoint = 
-            -1, 
-            float('inf'), 
+    bidx, mindist, targpoint = \
+            -1, \
+            float('inf'), \
             np.array([R*np.sin(np.radians(b[1]))*np.cos(np.radians(b[0])),
                     R*np.sin(np.radians(b[1]))*np.sin(np.radians(b[0])),
                     R*np.cos(np.radians(b[1]))])
     if dim[0] <= 1: #semicircle with variable phi
         for j in range(dim[1]):
-            xtmp[j] = 
+            xtmp[j] = \
                     np.array([0, R*np.sin(j*delta_phi), R*np.cos(j*delta_phi)])
             if __l2(xtmp[j] - targpoint) < mindist:
                 bidx = j
                 mindist = __l2(xtmp[j] - targpoint)
     elif dim[1] <= 1: #semicircle with variable theta
         for i in range(dim[0]):
-            xtmp[i] = 
+            xtmp[i] = \
                     np.array(
                             [R*np.cos(i*delta_theta), 
                             R*np.sin(i*delta_theta), 
@@ -95,30 +124,68 @@ def get_verification_matrix(R=3, dim=(37,1), b=(90,90)):
                     mindist = __l2(xtmp[idx] - targpoint)
     x = xtmp.copy()
     x[0], x[1:bidx+1] = xtmp[bidx], xtmp[:bidx]
-    return x
+    return x 
 
-def get_DAS_filters(X=get_verification_matrix(), Y=get_source_matrix(), 
-    samp_freq=44100, samples=1024, modeling_delay=0):
-        M, L = X.shape[0], Y.shape[0]
-        gamma = lambda x_b, y, l: 16 * np.pi**2 * __l2(x_b - y[l])**2 / L
-        freqs = np.fft.fftfreq(samples, 1 / samp_freq)
-        q_DAS = np.asmatrix(np.zeros((freqs.size, L), dtype="complex_"))
-        
-        for i in range(freqs.size):
-            freq = freqs[i]
-            omega = 2 * np.pi * freq
-            z_b = np.asmatrix(np.zeros((L,1)), dtype="complex_")
-            for l in range(L):
-                z_b[l, 0] = __Zf(X[0], Y[l], omega)
-            Gamma = np.asmatrix(np.zeros((L,L)), dtype="complex_")
-            for l in range(L):
-                Gamma[l,l] = gamma(X[0], Y, l)
-            this_q = np.e**(-1j * omega * modeling_delay) * Gamma * np.conjugate(z_b)
-            q_DAS[i] = this_q.T
+def get_DAS_filters(X: np.ndarray=get_verification_matrix(), 
+        Y: np.ndarray=get_source_matrix(), 
+        samp_freq: int=44100, samples: int=1024, 
+        modeling_delay: float=0) -> np.ndarray:
+    """
+    Generates a matrix of complex filters. 
 
-        return q_DAS
+    Essentially used as a black-box to generate filters 
+    for the :func:`~pybeam.map_filters` function.  
 
-def get_max_energy(sigma=5, R=3, Y=get_source_matrix()):
+    Args:
+        X: A verification matrix 
+            (see :func:`~pybeam.get_verification_matrix`).
+        Y: A source matrix (see :func:`~pybeam.get_source_matrix`). 
+        samp_freq: The frequency at which the audio signal will 
+            be sampled at. Optional, defaults to 44100.
+        samples: The number of samples per frame, any arbitrary 
+            integer that is some power of 2. 
+            Optional, defaults to 1024.
+        modeling_delay: The modeling delay in seconds. 
+            Optional, defaults to 0. 
+    
+    Returns:
+        A complex numpy array with frequency domain filters for 
+        each loudspeaker.       
+    """
+    M, L = X.shape[0], Y.shape[0]
+    gamma = lambda x_b, y, l: 16 * np.pi**2 * __l2(x_b - y[l])**2 / L
+    freqs = np.fft.fftfreq(samples, 1 / samp_freq)
+    q_DAS = np.asmatrix(np.zeros((freqs.size, L), dtype="complex_"))
+    
+    for i in range(freqs.size):
+        freq = freqs[i]
+        omega = 2 * np.pi * freq
+        z_b = np.asmatrix(np.zeros((L,1)), dtype="complex_")
+        for l in range(L):
+            z_b[l, 0] = __Zf(X[0], Y[l], omega)
+        Gamma = np.asmatrix(np.zeros((L,L)), dtype="complex_")
+        for l in range(L):
+            Gamma[l,l] = gamma(X[0], Y, l)
+        this_q = np.e**(-1j * omega * modeling_delay) \
+            * Gamma * np.conjugate(z_b)
+        q_DAS[i] = this_q.T
+
+    return q_DAS
+
+def get_max_energy(sigma=5, R=3, Y=get_source_matrix()) -> float:
+    """
+    Returns the maximum energy consumption of a source matrix
+
+    Args:
+        sigma: arbitrary constant, increase to use more energy
+        R: distance between verification points and the center
+            of the loudspeaker array
+        Y: A source matrix (see :func:'~pybeam.get_source_matrix`)
+    
+    Returns:
+        The maximum energy consumption of the source matrix 
+        under the current constraints
+    """
     return sigma * (4 * np.pi * R)**2 / Y.shape[0]
     
 def get_target_sound_pressures(onval=1, offval=0, X=get_verification_matrix()):
@@ -262,9 +329,7 @@ def visualize(Q, X, Y, onval=1, R=3, test_index=100,
                     Z[m, l] = __Zf(X_test[m], Y[l], omega)
                 else:
                     Z[m, l] = 0
-        p_test = Z * Q[test_index].T
-        
-
+        p_test = Z * Q[test_index].T   
         output = np.zeros(((R+1)*dpu, 2*(R+1)*dpu))
         for n in range(X_test.shape[0]):
             output[(R+1)*dpu - 1 - int(X_test[n, 1]*dpu), int(X_test[n, 0] * dpu + (R+1)*dpu)] = np.abs(p_test[n, 0])
