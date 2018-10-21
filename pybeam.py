@@ -126,12 +126,11 @@ def get_verification_matrix(R: int=3, dim: tuple=(37, 1),
     x[0], x[1:bidx+1] = xtmp[bidx], xtmp[:bidx]
     return x 
 
-def get_DAS_filters(X: np.ndarray=get_verification_matrix(), 
-        Y: np.ndarray=get_source_matrix(), 
+def get_DAS_filters(X: np.ndarray, Y: np.ndarray, 
         samp_freq: int=44100, samples: int=1024, 
-        modeling_delay: float=0) -> np.ndarray:
+        modeling_delay: float=0) -> np.matrix:
     """
-    Generates a matrix of complex filters. 
+    Generates a matrix of complex filters using Delay & Sum. 
 
     Essentially used as a black-box to generate filters 
     for the :func:`~pybeam.map_filters` function.  
@@ -172,15 +171,16 @@ def get_DAS_filters(X: np.ndarray=get_verification_matrix(),
 
     return q_DAS
 
-def get_max_energy(sigma=5, R=3, Y=get_source_matrix()) -> float:
+def get_max_energy(sigma: float=5, R: float=3, 
+        Y: np.ndarray) -> float:
     """
     Returns the maximum energy consumption of a source matrix
 
     Args:
-        sigma: arbitrary constant, increase to use more energy
-        R: distance between verification points and the center
-            of the loudspeaker array
-        Y: A source matrix (see :func:'~pybeam.get_source_matrix`)
+        sigma: An arbitrary constant, increase to use more energy.
+        R: The distance between verification points and the center
+            of the loudspeaker array.
+        Y: A source matrix (see :func:`~pybeam.get_source_matrix`).
     
     Returns:
         The maximum energy consumption of the source matrix 
@@ -188,42 +188,85 @@ def get_max_energy(sigma=5, R=3, Y=get_source_matrix()) -> float:
     """
     return sigma * (4 * np.pi * R)**2 / Y.shape[0]
     
-def get_target_sound_pressures(onval=1, offval=0, X=get_verification_matrix()):
-    return np.asmatrix(np.array([onval] + [offval]*(X.shape[0]-1), dtype="complex_")).T
+def get_target_sound_pressures(onval: int=1, offval: int=0, 
+        X: np.ndarray) -> np.matrix:
+    """
+    Generates a matrix of target sound pressures
 
-def get_PM_filters(X=get_verification_matrix(), Y=get_source_matrix(),
-    samp_freq=44100, samples=1024, modeling_delay=0, 
-    E_max=get_max_energy(), p_hat=get_target_sound_pressures(),
-    verbose=False):
-        M, L, p_b_hat = X.shape[0], Y.shape[0], p_hat[0]
-        W = lambda q, z_b: (p_b_hat / np.dot(z_b, q))[0, 0]
-        E = lambda q: np.dot(np.conjugate(q).T, q)[0, 0]
-        epsilon_beta, beta_min = 1e-5, 1e-19
-        freqs = np.fft.fftfreq(samples, 1 / samp_freq)
-        q_PM = np.asmatrix(np.zeros((freqs.size, L), dtype="complex_"))
+    Args:
+        onval: The sound pressure at the _bright_ point. 
+            Default is 1.
+        offval: The sound pressure at _dark_ points. Default is 0.
+        X: A verificatjon matrix 
+            (see :func:`~pybeam.get_verification_matrix`)
 
-        for i in range(len(freqs)):
-            freq = freqs[i]
-            if(verbose): print('frequency:', freq, flush=True)
-            omega = 2 * np.pi * freq
-            beta = beta_min
-            Z = np.asmatrix(np.zeros((M, L), dtype="complex_"))
-            for m in range(M):
-                for l in range(L):
-                    Z[m, l] = __Zf(X[m], Y[l], omega)
+    Returns:
+        A complex numpy matrix of target sound pressures
+    """
+    return np.asmatrix(np.array([onval] + [offval]*(X.shape[0]-1), 
+        dtype="complex_")).T
+
+def get_PM_filters(X: np.ndarray, Y: np.ndarray,
+        E_max: float, p_hat: np.matrix,
+        samp_freq: int=44100, samples: int=1024, modeling_delay: float=0,
+        verbose: bool=False):
+    """
+    Generates a matrix of complex filters using Pressure Matching. 
+
+    Essentially used as a black-box to generate filters 
+    for the :func:`~pybeam.map_filters` function.  
+
+    Args:
+        X: A verification matrix 
+            (see :func:`~pybeam.get_verification_matrix`).
+        Y: A source matrix (see :func:`~pybeam.get_source_matrix`). 
+        E_max: The maximum energy consumption of the source matrix
+            (see :func:`~pybeam.get_max_energy`)
+        p_hat: Matrix of target sound pressures (see 
+            :func:`pybeam.get_target_sound_pressures`)
+        samp_freq: The frequency at which the audio signal will 
+            be sampled at. Optional, defaults to 44100.
+        samples: The number of samples per frame, any arbitrary 
+            integer that is some power of 2. 
+            Optional, defaults to 1024.
+        modeling_delay: The modeling delay in seconds. 
+            Optional, defaults to 0. 
+        verbose: Flag for debug print statements. Optiona, defaults
+            to False. 
+    
+    Returns:
+        A complex numpy array with frequency domain filters for 
+        each loudspeaker.       
+    """
+    M, L, p_b_hat = X.shape[0], Y.shape[0], p_hat[0]
+    W = lambda q, z_b: (p_b_hat / np.dot(z_b, q))[0, 0]
+    E = lambda q: np.dot(np.conjugate(q).T, q)[0, 0]
+    epsilon_beta, beta_min = 1e-5, 1e-19
+    freqs = np.fft.fftfreq(samples, 1 / samp_freq)
+    q_PM = np.asmatrix(np.zeros((freqs.size, L), dtype="complex_"))
+
+    for i in range(len(freqs)):
+        freq = freqs[i]
+        if(verbose): print('frequency:', freq, flush=True)
+        omega = 2 * np.pi * freq
+        beta = beta_min
+        Z = np.asmatrix(np.zeros((M, L), dtype="complex_"))
+        for m in range(M):
+            for l in range(L):
+                Z[m, l] = __Zf(X[m], Y[l], omega)
+        q_temp = np.linalg.inv(
+            np.conjugate(Z).T * Z + beta * np.asmatrix(np.eye(L))) \
+            * np.conjugate(Z).T * p_hat
+        q_hat = W(q_temp, Z[0]) * q_temp
+        while(E(q_hat) > E_max):
+            beta += epsilon_beta
             q_temp = np.linalg.inv(
                 np.conjugate(Z).T * Z + beta * np.asmatrix(np.eye(L))) \
                 * np.conjugate(Z).T * p_hat
             q_hat = W(q_temp, Z[0]) * q_temp
-            while(E(q_hat) > E_max):
-                beta += epsilon_beta
-                q_temp = np.linalg.inv(
-                    np.conjugate(Z).T * Z + beta * np.asmatrix(np.eye(L))) \
-                    * np.conjugate(Z).T * p_hat
-                q_hat = W(q_temp, Z[0]) * q_temp
-            q_PM[i] = np.e**(-1j * omega * modeling_delay) * q_hat.T
-                
-        return q_PM    
+        q_PM[i] = np.e**(-1j * omega * modeling_delay) * q_hat.T
+            
+    return q_PM    
         
 def map_filters(filters, signal):
     
