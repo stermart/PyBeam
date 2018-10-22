@@ -67,6 +67,7 @@ def get_verification_matrix(R: int=3, dim: tuple=(37, 1),
             Optional, defaults to 3.
         dim: A two element tuple that indicates where to put the 
             verification points.
+
             Ex 1: dim=(37,1) indicates to construct a horizontal 
                 semicircle with 37 control points
             Ex 2: dim=(1,37) indicates to construct a vertical 
@@ -148,7 +149,7 @@ def get_DAS_filters(X: np.ndarray, Y: np.ndarray,
             Optional, defaults to 0. 
     
     Returns:
-        A complex numpy array with frequency domain filters for 
+        A complex numpy matrix with frequency domain filters for 
         each loudspeaker.       
     """
     M, L = X.shape[0], Y.shape[0]
@@ -168,11 +169,10 @@ def get_DAS_filters(X: np.ndarray, Y: np.ndarray,
         this_q = np.e**(-1j * omega * modeling_delay) \
             * Gamma * np.conjugate(z_b)
         q_DAS[i] = this_q.T
-
     return q_DAS
 
-def get_max_energy(sigma: float=5, R: float=3, 
-        Y: np.ndarray) -> float:
+def get_max_energy(Y: np.ndarray, 
+        sigma: float=5, R: float=3) -> float:
     """
     Returns the maximum energy consumption of a source matrix
 
@@ -188,8 +188,8 @@ def get_max_energy(sigma: float=5, R: float=3,
     """
     return sigma * (4 * np.pi * R)**2 / Y.shape[0]
     
-def get_target_sound_pressures(onval: int=1, offval: int=0, 
-        X: np.ndarray) -> np.matrix:
+def get_target_sound_pressures(X: np.ndarray, 
+        onval: int=1, offval: int=0) -> np.matrix:
     """
     Generates a matrix of target sound pressures
 
@@ -209,7 +209,7 @@ def get_target_sound_pressures(onval: int=1, offval: int=0,
 def get_PM_filters(X: np.ndarray, Y: np.ndarray,
         E_max: float, p_hat: np.matrix,
         samp_freq: int=44100, samples: int=1024, modeling_delay: float=0,
-        verbose: bool=False):
+        verbose: bool=False) -> np.matrix:
     """
     Generates a matrix of complex filters using Pressure Matching. 
 
@@ -231,11 +231,11 @@ def get_PM_filters(X: np.ndarray, Y: np.ndarray,
             Optional, defaults to 1024.
         modeling_delay: The modeling delay in seconds. 
             Optional, defaults to 0. 
-        verbose: Flag for debug print statements. Optiona, defaults
+        verbose: Flag for debug print statements. Optional, defaults
             to False. 
     
     Returns:
-        A complex numpy array with frequency domain filters for 
+        A complex numpy matrix with frequency domain filters for 
         each loudspeaker.       
     """
     M, L, p_b_hat = X.shape[0], Y.shape[0], p_hat[0]
@@ -264,12 +264,26 @@ def get_PM_filters(X: np.ndarray, Y: np.ndarray,
                 np.conjugate(Z).T * Z + beta * np.asmatrix(np.eye(L))) \
                 * np.conjugate(Z).T * p_hat
             q_hat = W(q_temp, Z[0]) * q_temp
-        q_PM[i] = np.e**(-1j * omega * modeling_delay) * q_hat.T
-            
+        q_PM[i] = np.e**(-1j * omega * modeling_delay) * q_hat.T 
     return q_PM    
         
-def map_filters(filters, signal):
+def map_filters(filters: np.matrix, 
+        signal: np.ndarray) -> np.ndarray:
+    """
+    Maps filters onto an audio signal
     
+    Args:
+        filters: A numpy matrix with complex filters for each
+            output loudspeaker, basically the ouput of 
+            :func:`~pybeam.get_DAS_filters` or 
+            :func:`~pybeam.get_PM_filters`.
+        signal: An audio monosignal (i.e. a one-dimensional
+            numpy array)
+
+    Returns:
+        A numpy array with a new signal for each output
+            loudspeaker
+    """
     #beamforming filters
     samples, L = filters.shape[0], filters.shape[1]
     o = np.zeros((L, len(signal)), dtype="complex_")
@@ -295,7 +309,7 @@ def map_filters(filters, signal):
 
     return o
 
-def read_wav_file(fname):
+def read_wav_file(fname: str) -> Tuple[np.ndarray, int, np.dtype]:
     ret1 = scipy.io.wavfile.read(fname)
     ret2 = ret1[1].dtype
     return ret1[1], ret1[0], ret2
@@ -304,13 +318,12 @@ def write_wav_dir(directory, output_signal, mapping, samp_freq=44100):
     if os.path.exists(directory):
         shutil.rmtree(directory)
     os.mkdir(directory)
+    #mapping = speaker pair # -> input id
     for i in range(0, output_signal.shape[0], 2):
         scipy.io.wavfile.write('{}/speaker{:d}.wav'.format(directory, i//2),
             samp_freq,
             output_signal[i:i+2].T)
     pkl.dump(mapping, open('{}/mapping.pkl'.format(directory), 'wb'))
-
-#mapping = speaker pair # -> input id
 
 def playback_wav_dir(directory, chunks=1024):
    
