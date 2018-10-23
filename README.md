@@ -37,7 +37,7 @@ Initialization entails creating a speaker mapping. This process entails identify
 
 The next step is to initialize a source point matrix and a verification point matrix, following this schema:
 
-![Source and Verification Points](https://imgur.com/u6xc9A4)
+![Source and Verification Points](readme\ docs/asset1.png)
 
 
 
