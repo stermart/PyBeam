@@ -39,7 +39,7 @@ Initialization entails creating a speaker mapping. This process entails identify
 
 #### Data Structure Initialization
 
-The first step in processing an audio signal is to initialize a source point matrix and a verification point matrix, following the scheme below as an example. 
+The first step in processing an audio signal is to initialize a source point matrix and a verification point matrix using [`pybeam.get_source_matrix`](https://smtm1209.github.io/PyBeam-Documentation/pybeam.html#pybeam.get_source_matrix) and [`pybeam.get_verification_matrix`](https://smtm1209.github.io/PyBeam-Documentation/pybeam.html#pybeam.get_verification_matrix), following the scheme below as an example. 
 
 ![Source and Verification Points](readme_docs/asset1.png)
 
