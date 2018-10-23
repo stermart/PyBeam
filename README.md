@@ -51,11 +51,15 @@ Y = pybeam.get_source_matrix(dim=(16, 1), delta=(0.02, 0))
 X = pybeam.get_verification_matrix(R=3, dim=(37, 1), b=(90, 90))
 ```
 
+#### Reading the Signal
+
 The next step is to load the `.wav` file that we want to process. The code to do that is here:
 
 ```python
 signal, samp_freq, dtype = pybeam.read_wav_file('path/to/wav/file.wav')
 ```
+
+#### Filter Calculation
 
 From here, we're able to generate the filters we will use to process the data. PyBeam has two routines for this sort of computation: `pybeam.get_DAS_filters` and `pybeam.get_PM_filters`. These two functions have the same type of output, and only really differ in the algorithm used to come to that result, delay and sum and pressure matching, respectively. Those algorithms, and the more theoretical components of this project, are detailed [here](article.pdf). 
 
@@ -74,6 +78,8 @@ On the other hand, to calculate the filters with delay and sum, use this code:
 Q = pybeam.get_DAS_filters(X=X, Y=Y,
         samp_freq=samp_freq, samples=1024, modeling_delay=0)
 ```
+
+#### Filter Application
 
 The next step is to map the filters we just calculated onto the signal from the `.wav` file we read in earlier. To do this, we use the `pybeam.map_filters` function. The code to use this function is here:
 
