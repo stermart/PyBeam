@@ -29,7 +29,17 @@ sys.path.insert(0, os.path.abspath('path/to/PyBeam/'))
 import pybeam
 ```
 
-## Initializing Your Array
+#### Initializing Your Array
+
+Initialization entails creating a speaker mapping. This process entails identifying which PyAudio output stream index corresponds to which physical speaker pair in your beamforming array. A sample routine designed around the speakers mentioned above is [here](https://github.com/smtm1209/PyBeam-Raw/blob/master/mapGen.py). In order to gain insight into the streams present on your computer, consider looking at [this](https://github.com/smtm1209/PyBeam-Raw/blob/master/pyaudioinfo.py) simple script. 
+
+## Signal Processing
+
+The next step is to initialize a source point matrix and a verification point matrix, following this schema:
+
+![Source and Verification Points](https://imgur.com/u6xc9A4)
+
+
 
 
 
