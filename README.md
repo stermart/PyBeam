@@ -15,6 +15,21 @@ To run and playback processed signals, the minimum you need is a laptop and some
 
 You need some version of Python 3 to use PyBeam, preferably Python 3.6 or higher. Moreover, PyBeam also has a dependancy on some Python libraries found [here](requirements.txt). 
 
+To install PyBeam, you can run the following commands:
+```
+$ git clone https://github.com/smtm1209/PyBeam.git
+$ pip install -r ./PyBeam/requirements.txt
+```
+
+Until PyBeam becomes a proper module, add these lines towards the top of any file that need to use PyBeam's routines. 
+```python
+import sys
+import os
+sys.path.insert(0, os.path.abspath('path/to/PyBeam/'))
+import pybeam
+```
+
 ## Initializing Your Array
+
 
 
